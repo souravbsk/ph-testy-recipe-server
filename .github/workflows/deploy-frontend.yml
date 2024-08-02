@@ -1,0 +1,48 @@
+name: Deploy Backend to VPS
+
+on:
+  push:
+    branches:
+      - main  # Adjust this to your deployment branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: backend  # Specify the environment here
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'  # Adjust this to your Node.js version
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Upload deployment files
+        run: |
+          scp -o StrictHostKeyChecking=no -r ./* root@157.173.222.223:~/test-applicaion/ph-testy-app/ph-testy-treat-server/
+
+      - name: Create .env file on server
+        run: |
+          ssh -o StrictHostKeyChecking=no root@157.173.222.223 << 'EOF'
+          echo "DBNAME=${{ secrets.DBNAME }}" > ~/test-applicaion/ph-testy-app/ph-testy-treat-server/.env
+          echo "DBPASS=${{ secrets.DBPASS }}" >> ~/test-applicaion/ph-testy-app/ph-testy-treat-server/.env
+          echo "SECRET_ACCESS_TOKEN=${{ secrets.SECRET_ACCESS_TOKEN }}" >> ~/test-applicaion/ph-testy-app/ph-testy-treat-server/.env
+          echo "URI=${{ secrets.MONGODB_URI }}" >> ~/test-applicaion/ph-testy-app/ph-testy-treat-server/.env
+          echo "PORT=${{ secrets.PORT }}" >> ~/test-applicaion/ph-testy-app/ph-testy-treat-server/.env
+          EOF
+
+      - name: Run deployment commands
+        run: |
+          ssh -o StrictHostKeyChecking=no root@157.173.222.223 << 'EOF'
+          export PATH=/root/.nvm/versions/node/v22.5.1/bin:$PATH
+          cd ~/test-applicaion/ph-testy-app/ph-testy-treat-server/
+          npm install
+          pm2 reload all  # Or pm2 restart all, depending on your setup
+          EOF
